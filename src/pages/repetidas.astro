@@ -1,0 +1,89 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Stat from '../components/Stat.astro';
+---
+
+<Layout title="Repetidas — Figus 26">
+  <section class="space-y-6">
+    <header>
+      <h1 class="text-2xl font-bold text-white">Mis repetidas</h1>
+      <p class="text-slate-400 text-sm">Estas son las que te sobran. Ya están publicadas en tu disponibilidad del mercado.</p>
+    </header>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <Stat label="Repetidas totales" value="0" tone="amber" hint="Suma de duplicados" />
+      <Stat label="Modelos distintos" value="0" tone="sky" hint="Únicos con copias extra" />
+      <Stat label="Para regalar" value="0" tone="emerald" hint="Disponibles para trade" />
+      <Stat label="Tasa de duplicación" value="0%" tone="rose" hint="Sobre las que tengo" />
+    </div>
+
+    <div id="dups-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
+    <p id="empty-msg" class="text-center text-slate-400 py-12">Cuando marques más de una copia de una figurita, aparecerán acá.</p>
+  </section>
+</Layout>
+
+<script>
+  import { getCollection, subscribe, increment, decrement } from '../lib/store';
+  import { STICKERS_BY_ID } from '../data/stickers';
+  import { stickerImageUrl, emojiForType } from '../lib/images';
+
+  const grid = document.getElementById('dups-grid')!;
+  const emptyMsg = document.getElementById('empty-msg')!;
+  const stats = document.querySelectorAll<HTMLElement>('[class*="rounded-2xl"] p.text-3xl');
+
+  function render() {
+    const c = getCollection();
+    const dupEntries = Object.entries(c).filter(([, n]) => n > 1);
+    const totalDup = dupEntries.reduce((acc, [, n]) => acc + (n - 1), 0);
+    const owned = Object.values(c).filter((n) => n > 0).length;
+    const dupRate = owned > 0 ? Math.round((dupEntries.length / owned) * 100) : 0;
+
+    stats[0].textContent = String(totalDup);
+    stats[1].textContent = String(dupEntries.length);
+    stats[2].textContent = String(totalDup);
+    stats[3].textContent = `${dupRate}%`;
+
+    grid.innerHTML = '';
+    for (const [id, count] of dupEntries.sort((a, b) => b[1] - a[1])) {
+      const sticker = STICKERS_BY_ID[id];
+      if (!sticker) continue;
+      const card = document.createElement('div');
+      card.className = 'relative rounded-xl ring-1 ring-amber-400/40 bg-slate-900/60 overflow-hidden p-3 flex flex-col gap-2';
+      const img = stickerImageUrl(sticker);
+      const thumb = img
+        ? `<img src="${img}" alt="" loading="lazy" class="h-10 w-10 object-contain rounded bg-slate-800 ring-1 ring-white/5" />`
+        : `<div class="h-10 w-10 rounded bg-slate-800 flex items-center justify-center text-lg">${emojiForType(sticker.type)}</div>`;
+      card.innerHTML = `
+        <div class="flex items-start justify-between">
+          <span class="text-[10px] font-mono text-slate-400">${sticker.code}</span>
+          <span class="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/30 text-amber-100">×${count}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          ${thumb}
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-white truncate">${sticker.label}</p>
+            <p class="text-xs text-slate-400 truncate">${sticker.team?.name_es ?? sticker.type}</p>
+          </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 mt-1">
+          <button data-action="dec" data-id="${id}" class="h-7 w-7 rounded-md bg-white/5 hover:bg-white/10 text-slate-300">−</button>
+          <span class="text-xs text-slate-300">Sobran <strong class="text-amber-300">${count - 1}</strong></span>
+          <button data-action="inc" data-id="${id}" class="h-7 w-7 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200">+</button>
+        </div>
+      `;
+      grid.appendChild(card);
+    }
+    emptyMsg.classList.toggle('hidden', dupEntries.length > 0);
+  }
+
+  grid.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-id]');
+    if (!btn) return;
+    const id = btn.dataset.id!;
+    if (btn.dataset.action === 'inc') increment(id);
+    else decrement(id);
+  });
+
+  subscribe(render);
+  render();
+</script>

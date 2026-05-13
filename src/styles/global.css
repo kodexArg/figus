@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #0a0f1c;
+  color: #e6e8ee;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.pitch-bg {
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(34,197,94,0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 10%, rgba(59,130,246,0.16), transparent 60%),
+    linear-gradient(180deg, #0a0f1c 0%, #08111d 100%);
+}
+
+.card-hatch {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.02) 0,
+    rgba(255, 255, 255, 0.02) 4px,
+    rgba(255, 255, 255, 0.05) 4px,
+    rgba(255, 255, 255, 0.05) 8px
+  );
+}

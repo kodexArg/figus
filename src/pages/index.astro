@@ -1,0 +1,123 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Stat from '../components/Stat.astro';
+import ProgressBar from '../components/ProgressBar.astro';
+import { TOTAL_STICKERS } from '../data/stickers';
+import { TEAMS } from '../data/teams';
+import { USERS } from '../data/users';
+---
+
+<Layout title="Figus — Mundial 2026">
+  <section class="space-y-8">
+    <header class="rounded-3xl ring-1 ring-white/10 bg-gradient-to-br from-emerald-500/15 via-sky-500/10 to-transparent p-6 sm:p-10">
+      <p class="text-xs uppercase tracking-[0.3em] text-emerald-300">Figus 26</p>
+      <h1 class="mt-2 text-3xl sm:text-4xl font-black text-white">Tu álbum del Mundial, sin perder figuritas.</h1>
+      <p class="mt-2 text-slate-300 max-w-2xl">
+        Llevá la cuenta de lo que tenés y lo que te falta, publicá tus repetidas en un mercado entre colees
+        cercanos, y dejá que la app te sugiera quién tiene lo tuyo más a mano.
+      </p>
+      <div class="mt-5 flex flex-wrap gap-2">
+        <a href="/album" class="h-10 inline-flex items-center px-4 rounded-lg bg-emerald-500/30 hover:bg-emerald-500/40 text-emerald-100 font-semibold">Abrir álbum →</a>
+        <a href="/perfil" class="h-10 inline-flex items-center px-4 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200">Configurar perfil</a>
+        <button id="quick-demo" class="h-10 inline-flex items-center px-4 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-100">Cargar demo</button>
+      </div>
+    </header>
+
+    <ProgressBar value={0} max={TOTAL_STICKERS} label="Progreso del álbum" />
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <Stat label="Tengo" value="0" tone="emerald" hint={`de ${TOTAL_STICKERS} figuritas`} />
+      <Stat label="Me faltan" value={TOTAL_STICKERS} tone="rose" />
+      <Stat label="Repetidas" value="0" tone="amber" hint="Listas para trade" />
+      <Stat label="Sugerencias" value="0" tone="sky" hint="Disponibles cerca" />
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 rounded-2xl bg-slate-900/60 ring-1 ring-white/5 p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-white">Top sugerencias para vos</h2>
+          <a href="/sugerencias" class="text-xs text-emerald-300 hover:underline">ver todas →</a>
+        </div>
+        <ul id="top-sug" class="space-y-2"></ul>
+        <p id="top-sug-empty" class="text-sm text-slate-400">Cargá tu colección desde el álbum para ver sugerencias.</p>
+      </div>
+
+      <div class="rounded-2xl bg-slate-900/60 ring-1 ring-white/5 p-5">
+        <h2 class="font-semibold text-white mb-3">Comunidad</h2>
+        <ul class="space-y-1.5 text-sm text-slate-300">
+          <li>· <strong class="text-white">{USERS.length}</strong> colees activos en el mock</li>
+          <li>· <strong class="text-white">{TEAMS.length}</strong> selecciones · {TOTAL_STICKERS} figuritas en total</li>
+          <li>· Trades por contacto directo (WhatsApp, IG, Telegram, mail)</li>
+        </ul>
+        <div class="mt-4 grid grid-cols-2 gap-2 text-sm">
+          <a href="/mercado" class="rounded-lg bg-white/5 hover:bg-white/10 p-3 text-slate-200">🛒<br/>Mercado</a>
+          <a href="/mapa" class="rounded-lg bg-white/5 hover:bg-white/10 p-3 text-slate-200">🗺️<br/>Mapa</a>
+          <a href="/repetidas" class="rounded-lg bg-white/5 hover:bg-white/10 p-3 text-slate-200">♻️<br/>Repetidas</a>
+          <a href="/album" class="rounded-lg bg-white/5 hover:bg-white/10 p-3 text-slate-200">📖<br/>Álbum</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import { getCollection, getProfile, subscribe, seedDemoCollection } from '../lib/store';
+  import { buildSuggestions } from '../lib/suggestions';
+  import { TOTAL_STICKERS } from '../data/stickers';
+  import { formatDistance } from '../lib/geo';
+  import { stickerImageUrl, emojiForType } from '../lib/images';
+
+  const statEls = document.querySelectorAll<HTMLElement>('p.text-3xl');
+  const progress = document.querySelector<HTMLElement>('[data-progress]')!;
+  const progressBar = progress.querySelector<HTMLElement>('[data-progress-bar]')!;
+  const progressValueEl = progress.querySelector<HTMLElement>('[data-progress-value]')!;
+  const progressPctEl = progress.querySelector<HTMLElement>('[data-progress-pct]')!;
+  const topUl = document.getElementById('top-sug')!;
+  const topEmpty = document.getElementById('top-sug-empty')!;
+
+  function render() {
+    const c = getCollection();
+    const owned = Object.values(c).filter((n) => n > 0).length;
+    const missing = TOTAL_STICKERS - owned;
+    const duplicates = Object.values(c).filter((n) => n > 1).reduce((a, n) => a + (n - 1), 0);
+    const suggestions = buildSuggestions(c, getProfile(), { limit: 5 });
+
+    statEls[0].textContent = String(owned);
+    statEls[1].textContent = String(missing);
+    statEls[2].textContent = String(duplicates);
+    statEls[3].textContent = String(suggestions.length);
+
+    const pct = TOTAL_STICKERS > 0 ? Math.round((owned / TOTAL_STICKERS) * 100) : 0;
+    progressBar.style.width = `${pct}%`;
+    progressValueEl.textContent = String(owned);
+    progressPctEl.textContent = String(pct);
+
+    topUl.innerHTML = '';
+    for (const s of suggestions) {
+      const top = s.matches[0];
+      const li = document.createElement('li');
+      li.className = 'flex items-center gap-3 p-2 rounded-lg hover:bg-white/5';
+      const img = stickerImageUrl(s.sticker);
+      const thumb = img
+        ? `<img src="${img}" alt="" loading="lazy" class="h-10 w-10 object-contain rounded-lg bg-slate-800 ring-1 ring-white/5 shrink-0" />`
+        : `<div class="h-10 w-10 rounded-lg bg-slate-800 flex items-center justify-center text-lg shrink-0">${emojiForType(s.sticker.type)}</div>`;
+      li.innerHTML = `
+        ${thumb}
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-white truncate">${s.sticker.label}</p>
+          <p class="text-xs text-slate-400 truncate">${s.sticker.code} · ${s.matches.length} ofertas · más cercana: ${top.user.name} (${formatDistance(top.distanceKm)})</p>
+        </div>
+        <a href="/sugerencias" class="text-xs text-emerald-300">→</a>
+      `;
+      topUl.appendChild(li);
+    }
+    topEmpty.classList.toggle('hidden', suggestions.length > 0);
+  }
+
+  document.getElementById('quick-demo')!.addEventListener('click', () => {
+    if (confirm('Cargar colección de demo? Reemplaza tu progreso actual.')) seedDemoCollection();
+  });
+
+  subscribe(render);
+  render();
+</script>

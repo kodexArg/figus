@@ -1,0 +1,32 @@
+---
+import '../styles/global.css';
+import Nav from '../components/Nav.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title = 'Figus — Mundial 2026', description = 'Coleccioná, intercambiá y completá tu álbum' } = Astro.props;
+const path = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+  </head>
+  <body class="pitch-bg min-h-screen">
+    <Nav path={path} />
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+      <slot />
+    </main>
+    <footer class="text-center text-xs text-slate-500 py-6">
+      Figus · prototipo frontend · mock data
+    </footer>
+  </body>
+</html>

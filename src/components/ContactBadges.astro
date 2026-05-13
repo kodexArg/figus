@@ -1,0 +1,42 @@
+---
+import type { UserContacts } from '../data/types';
+interface Props { contacts: UserContacts; size?: 'sm' | 'md' }
+const { contacts, size = 'sm' } = Astro.props;
+
+const base = size === 'sm'
+  ? 'h-7 px-2 text-xs rounded-md gap-1'
+  : 'h-8 px-3 text-sm rounded-lg gap-1.5';
+
+function waLink(num: string) {
+  return `https://wa.me/${num.replace(/[^0-9]/g, '')}`;
+}
+function igLink(handle: string) {
+  return `https://instagram.com/${handle.replace(/^@/, '')}`;
+}
+function tgLink(handle: string) {
+  return `https://t.me/${handle.replace(/^@/, '')}`;
+}
+---
+
+<div class="flex flex-wrap gap-1.5">
+  {contacts.whatsapp && (
+    <a href={waLink(contacts.whatsapp)} target="_blank" rel="noopener" class={`inline-flex items-center ${base} bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30`}>
+      <span>WhatsApp</span>
+    </a>
+  )}
+  {contacts.instagram && (
+    <a href={igLink(contacts.instagram)} target="_blank" rel="noopener" class={`inline-flex items-center ${base} bg-fuchsia-500/20 text-fuchsia-200 hover:bg-fuchsia-500/30`}>
+      <span>Instagram</span>
+    </a>
+  )}
+  {contacts.telegram && (
+    <a href={tgLink(contacts.telegram)} target="_blank" rel="noopener" class={`inline-flex items-center ${base} bg-sky-500/20 text-sky-200 hover:bg-sky-500/30`}>
+      <span>Telegram</span>
+    </a>
+  )}
+  {contacts.email && (
+    <a href={`mailto:${contacts.email}`} class={`inline-flex items-center ${base} bg-slate-500/20 text-slate-200 hover:bg-slate-500/30`}>
+      <span>Email</span>
+    </a>
+  )}
+</div>

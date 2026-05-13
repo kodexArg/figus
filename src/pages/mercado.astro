@@ -1,0 +1,120 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { TEAMS } from '../data/teams';
+---
+
+<Layout title="Mercado — Figus 26">
+  <section class="space-y-6">
+    <header class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-white">Mercado de disponibilidad</h1>
+        <p class="text-slate-400 text-sm">Figuritas que otros colees tienen repetidas. Ordenado por cercanía.</p>
+      </div>
+      <a href="/perfil" class="text-xs px-3 py-1.5 rounded-md bg-white/5 hover:bg-white/10 text-slate-200">Editar mi ubicación</a>
+    </header>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+      <input
+        type="search"
+        id="m-q"
+        placeholder="Buscar (jugador, equipo, #)"
+        class="h-10 px-3 rounded-lg bg-slate-900/70 ring-1 ring-white/5 text-slate-200 placeholder:text-slate-500"
+      />
+      <select id="m-team" class="h-10 px-3 rounded-lg bg-slate-900/70 ring-1 ring-white/5 text-slate-200">
+        <option value="">Todos los equipos</option>
+        {TEAMS.map((t) => <option value={t.code}>{t.name_es}</option>)}
+      </select>
+      <select id="m-type" class="h-10 px-3 rounded-lg bg-slate-900/70 ring-1 ring-white/5 text-slate-200">
+        <option value="">Todos los tipos</option>
+        <option value="team_emblem">Escudos</option>
+        <option value="team_photo">Planteles</option>
+        <option value="player">Jugadores</option>
+        <option value="legend">Leyendas</option>
+        <option value="mystery_player">Mystery Players</option>
+        <option value="coca_cola_special">Coca-Cola LATAM</option>
+        <option value="host_country">Anfitriones</option>
+        <option value="mascot,official_ball,official_emblem,panini_logo,slogan">Especiales</option>
+      </select>
+      <select id="m-dist" class="h-10 px-3 rounded-lg bg-slate-900/70 ring-1 ring-white/5 text-slate-200">
+        <option value="">Cualquier distancia</option>
+        <option value="10">≤ 10 km</option>
+        <option value="50">≤ 50 km</option>
+        <option value="200">≤ 200 km</option>
+        <option value="500">≤ 500 km</option>
+      </select>
+    </div>
+
+    <label class="flex items-center gap-2 text-xs text-slate-300">
+      <input id="m-missing" type="checkbox" class="accent-emerald-500" />
+      Solo las que me faltan
+    </label>
+
+    <div id="market-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+    <p id="m-empty" class="hidden text-center text-slate-400 py-12">No hay publicaciones con esos filtros.</p>
+  </section>
+</Layout>
+
+<script>
+  import { getCollection, getProfile, subscribe } from '../lib/store';
+  import { buildMarket } from '../lib/market';
+  import { formatDistance } from '../lib/geo';
+  import { stickerImageUrl, emojiForType } from '../lib/images';
+
+  const q = document.getElementById('m-q') as HTMLInputElement;
+  const team = document.getElementById('m-team') as HTMLSelectElement;
+  const type = document.getElementById('m-type') as HTMLSelectElement;
+  const dist = document.getElementById('m-dist') as HTMLSelectElement;
+  const onlyMissing = document.getElementById('m-missing') as HTMLInputElement;
+  const list = document.getElementById('market-list')!;
+  const empty = document.getElementById('m-empty')!;
+
+  function render() {
+    const profile = getProfile();
+    const collection = getCollection();
+    const listings = buildMarket(profile, {
+      query: q.value.trim() || undefined,
+      team: team.value || undefined,
+      type: type.value || undefined,
+      maxDistanceKm: dist.value ? Number(dist.value) : undefined,
+    });
+
+    const filtered = onlyMissing.checked
+      ? listings.filter((l) => (collection[l.sticker.id] ?? 0) === 0)
+      : listings;
+
+    list.innerHTML = '';
+    for (const l of filtered.slice(0, 200)) {
+      const isMissing = (collection[l.sticker.id] ?? 0) === 0;
+      const card = document.createElement('article');
+      card.className = 'rounded-xl bg-slate-900/60 ring-1 ring-white/5 p-4 flex items-start gap-3 hover:ring-emerald-400/30 transition';
+      const img = stickerImageUrl(l.sticker);
+      const thumb = img
+        ? `<img src="${img}" alt="" loading="lazy" class="h-12 w-12 object-contain rounded-lg bg-slate-800 ring-1 ring-white/5 shrink-0" />`
+        : `<div class="h-12 w-12 rounded-lg bg-slate-800 flex items-center justify-center text-xl shrink-0">${emojiForType(l.sticker.type)}</div>`;
+      card.innerHTML = `
+        ${thumb}
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="font-semibold text-white truncate">${l.sticker.label}</p>
+            <span class="text-[10px] font-mono text-slate-400">${l.sticker.code}</span>
+            ${isMissing ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-100">Me falta</span>' : ''}
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200">×${l.count} disp.</span>
+          </div>
+          <p class="text-xs text-slate-400">${l.sticker.team?.name_es ?? l.sticker.type} · ofrecida por <strong class="text-slate-200">${l.user.name}</strong> · ${l.user.city} · ${formatDistance(l.distanceKm)}</p>
+          <div class="mt-2 flex flex-wrap gap-1.5">
+            ${l.user.contacts.whatsapp ? `<a href="https://wa.me/${l.user.contacts.whatsapp.replace(/[^0-9]/g,'')}" target="_blank" class="h-7 px-2 inline-flex items-center text-xs rounded-md bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30">WhatsApp</a>` : ''}
+            ${l.user.contacts.instagram ? `<a href="https://instagram.com/${l.user.contacts.instagram.replace(/^@/,'')}" target="_blank" class="h-7 px-2 inline-flex items-center text-xs rounded-md bg-fuchsia-500/20 text-fuchsia-200 hover:bg-fuchsia-500/30">Instagram</a>` : ''}
+            ${l.user.contacts.telegram ? `<a href="https://t.me/${l.user.contacts.telegram.replace(/^@/,'')}" target="_blank" class="h-7 px-2 inline-flex items-center text-xs rounded-md bg-sky-500/20 text-sky-200 hover:bg-sky-500/30">Telegram</a>` : ''}
+            ${l.user.contacts.email ? `<a href="mailto:${l.user.contacts.email}" class="h-7 px-2 inline-flex items-center text-xs rounded-md bg-slate-500/20 text-slate-200 hover:bg-slate-500/30">Email</a>` : ''}
+          </div>
+        </div>
+      `;
+      list.appendChild(card);
+    }
+    empty.classList.toggle('hidden', filtered.length > 0);
+  }
+
+  [q, team, type, dist, onlyMissing].forEach((el) => el.addEventListener('input', render));
+  subscribe(render);
+  render();
+</script>

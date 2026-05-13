@@ -1,0 +1,16 @@
+---
+interface Props {
+  value: number;
+  max: number;
+  label?: string;
+}
+const { value, max, label } = Astro.props;
+const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
+---
+
+<div class="w-full" data-progress data-value={value} data-max={max}>
+  {label && <div class="flex justify-between text-xs text-slate-400 mb-1"><span>{label}</span><span><span data-progress-value>{value}</span> / {max} · <span data-progress-pct>{pct}</span>%</span></div>}
+  <div class="h-2 bg-white/5 rounded-full overflow-hidden ring-1 ring-white/5">
+    <div data-progress-bar class="h-full bg-gradient-to-r from-emerald-400 to-sky-500 transition-[width] duration-500" style={`width: ${pct}%`}></div>
+  </div>
+</div>

@@ -1,0 +1,103 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Sugerencias — Figus 26">
+  <section class="space-y-6">
+    <header>
+      <h1 class="text-2xl font-bold text-white">Sugerencias predictivas</h1>
+      <p class="text-slate-400 text-sm">
+        Te faltan figuritas y otros colees las tienen repetidas. Las priorizamos por
+        <span class="text-emerald-300">cercanía</span>,
+        <span class="text-sky-300">disponibilidad</span> y
+        <span class="text-amber-300">reciprocidad</span> (qué de tus repetidas podrían querer ellos).
+      </p>
+    </header>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <select id="s-dist" class="h-10 px-3 rounded-lg bg-slate-900/70 ring-1 ring-white/5 text-slate-200">
+        <option value="1500">Cualquier distancia</option>
+        <option value="500">≤ 500 km</option>
+        <option value="200">≤ 200 km</option>
+        <option value="50">≤ 50 km</option>
+        <option value="10">≤ 10 km</option>
+      </select>
+      <select id="s-limit" class="h-10 px-3 rounded-lg bg-slate-900/70 ring-1 ring-white/5 text-slate-200">
+        <option value="20">Top 20</option>
+        <option value="50">Top 50</option>
+        <option value="100">Top 100</option>
+      </select>
+      <a href="/perfil" class="h-10 inline-flex items-center px-3 rounded-lg bg-white/5 hover:bg-white/10 text-slate-200 text-sm">Setear mi ubicación →</a>
+    </div>
+
+    <div id="sug-list" class="space-y-3"></div>
+    <p id="sug-empty" class="hidden text-center text-slate-400 py-12">No encontramos sugerencias — probá ampliar el rango de distancia o cargá la colección demo en el álbum.</p>
+  </section>
+</Layout>
+
+<script>
+  import { getCollection, getProfile, subscribe } from '../lib/store';
+  import { buildSuggestions } from '../lib/suggestions';
+  import { formatDistance } from '../lib/geo';
+  import { stickerImageUrl, emojiForType } from '../lib/images';
+
+  const list = document.getElementById('sug-list')!;
+  const empty = document.getElementById('sug-empty')!;
+  const distSel = document.getElementById('s-dist') as HTMLSelectElement;
+  const limitSel = document.getElementById('s-limit') as HTMLSelectElement;
+
+  function render() {
+    const suggestions = buildSuggestions(getCollection(), getProfile(), {
+      maxDistanceKm: Number(distSel.value),
+      limit: Number(limitSel.value),
+    });
+
+    list.innerHTML = '';
+    for (const s of suggestions) {
+      const card = document.createElement('article');
+      card.className = 'rounded-2xl bg-slate-900/60 ring-1 ring-white/5 p-4';
+      const matches = s.matches.map((m) => `
+        <li class="flex items-center justify-between gap-2 py-1.5 border-t border-white/5">
+          <div class="min-w-0">
+            <p class="text-sm text-white truncate">${m.user.name}</p>
+            <p class="text-xs text-slate-400">${m.user.city} · ${formatDistance(m.distanceKm)} · ★ ${m.user.rating.toFixed(1)}${m.reciprocity > 0 ? ` · <span class="text-emerald-300">tenés ${m.reciprocity} que le falta(n)</span>` : ''}</p>
+          </div>
+          <div class="flex gap-1 shrink-0">
+            ${m.user.contacts.whatsapp ? `<a href="https://wa.me/${m.user.contacts.whatsapp.replace(/[^0-9]/g,'')}" target="_blank" class="h-7 px-2 inline-flex items-center text-xs rounded-md bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30">WA</a>` : ''}
+            ${m.user.contacts.instagram ? `<a href="https://instagram.com/${m.user.contacts.instagram.replace(/^@/,'')}" target="_blank" class="h-7 px-2 inline-flex items-center text-xs rounded-md bg-fuchsia-500/20 text-fuchsia-200 hover:bg-fuchsia-500/30">IG</a>` : ''}
+            ${m.user.contacts.telegram ? `<a href="https://t.me/${m.user.contacts.telegram.replace(/^@/,'')}" target="_blank" class="h-7 px-2 inline-flex items-center text-xs rounded-md bg-sky-500/20 text-sky-200 hover:bg-sky-500/30">TG</a>` : ''}
+          </div>
+        </li>
+      `).join('');
+
+      const rarityClass = s.sticker.rarity === 'legendary' ? 'ring-amber-400/60' : s.sticker.rarity === 'foil' ? 'ring-fuchsia-400/60' : s.sticker.rarity === 'parallel' ? 'ring-violet-400/60' : s.sticker.rarity === 'rare' ? 'ring-sky-400/40' : 'ring-slate-600';
+      const img = stickerImageUrl(s.sticker);
+      const thumb = img
+        ? `<img src="${img}" alt="" loading="lazy" class="h-14 w-14 object-contain rounded-xl ring-1 ${rarityClass} bg-slate-800 shrink-0" />`
+        : `<div class="h-14 w-14 rounded-xl ring-1 ${rarityClass} bg-slate-800 flex items-center justify-center text-2xl shrink-0">${emojiForType(s.sticker.type)}</div>`;
+
+      card.innerHTML = `
+        <div class="flex items-start gap-3">
+          ${thumb}
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="font-semibold text-white truncate">${s.sticker.label}</h3>
+              <span class="text-[10px] font-mono text-slate-400">${s.sticker.code}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-700/60 text-slate-200 uppercase tracking-wider">${s.sticker.rarity}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-200">${s.matches.length} ofertas</span>
+            </div>
+            <p class="text-xs text-slate-400">${s.sticker.team?.name_es ?? s.sticker.type} · score ${s.score.toFixed(1)}</p>
+          </div>
+        </div>
+        <ul class="mt-3">${matches}</ul>
+      `;
+      list.appendChild(card);
+    }
+
+    empty.classList.toggle('hidden', suggestions.length > 0);
+  }
+
+  [distSel, limitSel].forEach((el) => el.addEventListener('input', render));
+  subscribe(render);
+  render();
+</script>
